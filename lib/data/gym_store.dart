@@ -36,7 +36,15 @@ class GymStore extends ChangeNotifier {
   /// Amigos elegidos en Perfil por el usuario actual.
   Set<String> friendIds = {};
 
+  /// Todos los ejercicios, incluidos los eliminados (archivados), que hacen
+  /// falta para mostrar las rutinas viejas.
   List<Exercise> exercises = [];
+
+  /// Los ejercicios que se pueden ver y elegir.
+  List<Exercise> get activeExercises => [
+    for (final exercise in exercises)
+      if (!exercise.archived) exercise,
+  ];
 
   /// Duración del tiempo de preparación del temporizador, elegida en Perfil.
   int prepSeconds = 3;
@@ -156,15 +164,18 @@ class GymStore extends ChangeNotifier {
   }
 
   Future<void> renameExercise(Exercise exercise, String name) async {
-    final renamed = Exercise(
-      id: exercise.id,
-      name: name,
-      bodyPart: exercise.bodyPart,
-      weightType: exercise.weightType,
-      initialWeights: exercise.initialWeights,
-    );
+    final renamed = exercise.copyWith(name: name);
     await _repository.updateExercise(renamed);
     exercises[exercises.indexWhere((e) => e.id == exercise.id)] = renamed;
+    notifyListeners();
+  }
+
+  /// Archiva el ejercicio: sale de los listados pero se conserva en las
+  /// rutinas que ya lo usaron.
+  Future<void> deleteExercise(Exercise exercise) async {
+    await _repository.deleteExercise(exercise.id!);
+    exercises[exercises.indexWhere((e) => e.id == exercise.id)] = exercise
+        .copyWith(archived: true);
     notifyListeners();
   }
 

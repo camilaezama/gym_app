@@ -101,6 +101,11 @@ class SupabaseGymRepository implements GymRepository {
   }
 
   @override
+  Future<void> deleteExercise(String id) async {
+    await _db.from('exercises').update({'archived': true}).eq('id', id);
+  }
+
+  @override
   Future<List<Routine>> getRoutines(Set<String> personIds) async {
     if (personIds.isEmpty) return [];
     final rows = await _db
@@ -149,6 +154,7 @@ Exercise _exerciseFromRow(Map<String, dynamic> row) {
     bodyPart: BodyPart.values.byName(row['body_part'] as String),
     weightType: WeightType.values.byName(row['weight_type'] as String),
     initialWeights: _weightsFromJson(row['initial_weights']),
+    archived: row['archived'] as bool? ?? false,
   );
 }
 

@@ -79,7 +79,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
       context: context,
       builder: (context) => _ExercisePickerDialog(
         exercises: [
-          for (final exercise in gymStore.exercises)
+          for (final exercise in gymStore.activeExercises)
             if (!used.contains(exercise.id)) exercise,
         ],
       ),

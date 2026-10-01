@@ -189,6 +189,12 @@ class MockGymRepository implements GymRepository {
   }
 
   @override
+  Future<void> deleteExercise(String id) async {
+    final index = _exercises.indexWhere((e) => e.id == id);
+    _exercises[index] = _exercises[index].copyWith(archived: true);
+  }
+
+  @override
   Future<List<Routine>> getRoutines(Set<String> personIds) async => [
     for (final routine in _routines)
       if (routine.personIds.any(personIds.contains)) routine,

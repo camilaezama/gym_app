@@ -42,6 +42,7 @@ class Exercise {
     required this.bodyPart,
     required this.weightType,
     this.initialWeights = const {},
+    this.archived = false,
   });
 
   /// null mientras todavía no fue guardado.
@@ -49,6 +50,21 @@ class Exercise {
   final String name;
   final BodyPart bodyPart;
   final WeightType weightType;
+
+  /// Un ejercicio eliminado no se borra, se archiva: deja de aparecer en los
+  /// listados pero las rutinas viejas que lo usan lo siguen mostrando.
+  final bool archived;
+
+  Exercise copyWith({String? name, bool? archived}) {
+    return Exercise(
+      id: id,
+      name: name ?? this.name,
+      bodyPart: bodyPart,
+      weightType: weightType,
+      initialWeights: initialWeights,
+      archived: archived ?? this.archived,
+    );
+  }
 
   /// Pesos iniciales por persona (id de persona -> pesos). Ver
   /// [RoutineEntry.weights].

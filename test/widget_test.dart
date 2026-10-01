@@ -221,6 +221,25 @@ void main() {
     expect(find.text('Historial'), findsOneWidget);
     expect(find.byTooltip('Editar rutina'), findsNWidgets(2));
 
+    // Eliminar un ejercicio: sale del listado pero el historial lo conserva.
+    await tester.tap(find.byIcon(Icons.fitness_center_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('Triceps soga'), findsOneWidget);
+    await tester.tap(find.byTooltip('Editar ejercicio').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Eliminar ejercicio'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Eliminar'));
+    await tester.pumpAndSettle();
+    expect(find.text('Triceps soga'), findsNothing);
+    expect(
+      gymStore.activeExercises.map((e) => e.name),
+      isNot(contains('Triceps soga')),
+    );
+    await tester.tap(find.byIcon(Icons.list_alt_outlined));
+    await tester.pumpAndSettle();
+    expect(find.text('Triceps soga'), findsOneWidget);
+
     // Cerrar sesión vuelve al login.
     await tester.tap(find.byIcon(Icons.person_outline));
     await tester.pumpAndSettle();

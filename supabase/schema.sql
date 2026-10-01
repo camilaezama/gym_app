@@ -24,6 +24,9 @@ create table exercises (
   ),
   -- {"<id de persona>": [25, 30, 35]}: un valor, o uno por serie.
   initial_weights jsonb not null default '{}',
+  -- Los ejercicios eliminados se archivan en vez de borrarse, para que las
+  -- rutinas viejas los sigan mostrando.
+  archived boolean not null default false,
   created_at timestamptz not null default now()
 );
 

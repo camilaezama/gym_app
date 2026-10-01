@@ -37,6 +37,37 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
     if (mounted) Navigator.pop(context);
   }
 
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('¿Eliminar ejercicio?'),
+        content: Text(
+          '"${widget.exercise.name}" va a dejar de aparecer en Ejercicios y '
+          'no se va a poder agregar a rutinas nuevas. Las rutinas que ya lo '
+          'tienen lo siguen mostrando.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await gymStore.deleteExercise(widget.exercise);
+    if (mounted) Navigator.pop(context);
+  }
+
   Widget _row(String label, Map<String, List<double>> weights) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
@@ -77,7 +108,16 @@ class _ExerciseDetailScreenState extends State<ExerciseDetailScreen> {
             (date: routine.date, weights: entry.weights),
     ];
     return Scaffold(
-      appBar: AppBar(title: const Text('Editar ejercicio')),
+      appBar: AppBar(
+        title: const Text('Editar ejercicio'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Eliminar ejercicio',
+            onPressed: _delete,
+          ),
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

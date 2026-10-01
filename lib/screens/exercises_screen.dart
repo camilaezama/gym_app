@@ -75,7 +75,7 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
                       ),
                     ),
                     rows: [
-                      for (final exercise in gymStore.exercises)
+                      for (final exercise in gymStore.activeExercises)
                         ExerciseRow(exercise, {
                           for (final person in people)
                             person.id: ?gymStore.lastWeights(

@@ -45,6 +45,10 @@ abstract class GymRepository {
   /// Las rutinas lo referencian por id, así que no hay que tocarlas.
   Future<void> updateExercise(Exercise exercise);
 
+  /// No lo borra: lo marca como archivado, para no romper las rutinas que
+  /// ya lo usaron.
+  Future<void> deleteExercise(String id);
+
   /// Rutinas en las que participa alguna de esas personas.
   Future<List<Routine>> getRoutines(Set<String> personIds);
 
