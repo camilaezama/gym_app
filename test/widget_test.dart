@@ -9,7 +9,11 @@ import 'package:gym_app/format.dart';
 import 'package:gym_app/main.dart';
 
 void main() {
-  setUp(() => SharedPreferences.setMockInitialValues({}));
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+    // Los tests nunca usan la base real.
+    gymStore = GymStore(MockGymRepository());
+  });
 
   test('formatWeight and parseWeight use comma decimals', () {
     expect(formatWeight(25), '25');

@@ -1,16 +1,20 @@
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../config.dart';
 import '../models.dart';
 import 'gym_repository.dart';
 import 'mock_gym_repository.dart';
+import 'supabase_gym_repository.dart';
 
-/// Estado compartido de la app. Para conectar una base real, cambiar acá
-/// MockGymRepository por la implementación nueva.
-final gymStore = GymStore(MockGymRepository());
+/// Estado compartido de la app. Usa la base real si config.dart tiene los
+/// datos de Supabase, y si no la base de mentira. Los tests lo reemplazan por
+/// uno con la base de mentira.
+GymStore gymStore = GymStore(
+  supabaseConfigured ? SupabaseGymRepository() : MockGymRepository(),
+);
 
-// La sesión y la configuración del temporizador se guardan en el dispositivo.
-const _sessionKey = 'sessionUserId';
+// La configuración del temporizador se guarda en el dispositivo.
 const _prepSecondsKey = 'prepSeconds';
 
 const minPrepSeconds = 1;
@@ -58,16 +62,13 @@ class GymStore extends ChangeNotifier {
       if (user.id != currentUser?.id) user,
   ];
 
-  /// Carga los datos y recupera la sesión guardada en el dispositivo, si hay.
+  /// Recupera la sesión guardada en el dispositivo, si hay, y carga los
+  /// datos.
   Future<void> load() async {
     final prefs = await SharedPreferences.getInstance();
     prepSeconds = prefs.getInt(_prepSecondsKey) ?? prepSeconds;
-    users = await _repository.getUsers();
-    exercises = await _repository.getExercises();
-    final sessionId = prefs.getString(_sessionKey);
-    for (final user in users) {
-      if (user.id == sessionId) await _startSession(user);
-    }
+    final user = await _repository.restoreSession();
+    if (user != null) await _startSession(user);
     loaded = true;
     notifyListeners();
   }
@@ -81,17 +82,16 @@ class GymStore extends ChangeNotifier {
       username: username,
       password: password,
     );
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_sessionKey, user.id);
     await _startSession(user);
     notifyListeners();
   }
 
   Future<void> signOut() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_sessionKey);
+    await _repository.signOut();
     currentUser = null;
+    users = [];
     friendIds = {};
+    exercises = [];
     routines = [];
     notifyListeners();
   }
@@ -114,9 +114,16 @@ class GymStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Los datos se cargan recién con la sesión iniciada: la base real no deja
+  // leer nada sin sesión.
   Future<void> _startSession(Person user) async {
+    final loadedUsers = await _repository.getUsers();
+    final loadedExercises = await _repository.getExercises();
+    final loadedFriends = await _repository.getFriendIds(user.id);
     currentUser = user;
-    friendIds = await _repository.getFriendIds(user.id);
+    users = loadedUsers;
+    exercises = loadedExercises;
+    friendIds = loadedFriends;
     await _loadRoutines();
   }
 

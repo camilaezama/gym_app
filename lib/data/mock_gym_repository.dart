@@ -8,6 +8,7 @@ const _cami = 'cami';
 const _agos = 'agos';
 const _mica = 'mica';
 const _password = '123';
+const _sessionKey = 'sessionUserId';
 
 /// Base de datos de mentira: guarda todo en memoria y se reinicia al
 /// recargar la app. Los usuarios, ejercicios y rutinas de acá son solo de
@@ -115,9 +116,29 @@ class MockGymRepository implements GymRepository {
   }) async {
     final id = username.trim().toLowerCase();
     for (final user in _users) {
-      if (user.id == id && password == _password) return user;
+      if (user.id == id && password == _password) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString(_sessionKey, user.id);
+        return user;
+      }
     }
     throw const GymException('Usuario o contraseña incorrectos.');
+  }
+
+  @override
+  Future<Person?> restoreSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    final id = prefs.getString(_sessionKey);
+    for (final user in _users) {
+      if (user.id == id) return user;
+    }
+    return null;
+  }
+
+  @override
+  Future<void> signOut() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_sessionKey);
   }
 
   @override

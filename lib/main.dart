@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'app_theme.dart';
+import 'config.dart';
 import 'data/gym_store.dart';
 import 'home_shell.dart';
 import 'screens/login_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (supabaseConfigured) {
+    await Supabase.initialize(
+      url: supabaseUrl,
+      publishableKey: supabasePublishableKey,
+    );
+  }
   runApp(const GymApp());
 }
 

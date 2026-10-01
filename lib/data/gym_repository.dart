@@ -10,12 +10,18 @@ class GymException implements Exception {
   String toString() => message;
 }
 
-/// Acceso a los datos de la app. Para conectar una base real (Supabase),
-/// crear otra implementación de esta clase y usarla en gym_store.dart.
+/// Acceso a los datos de la app. Tiene dos implementaciones: la de mentira
+/// (MockGymRepository) y la real (SupabaseGymRepository). Cuál se usa se
+/// decide en gym_store.dart según config.dart.
 abstract class GymRepository {
+  /// Usuario de la sesión guardada en el dispositivo, o null si no hay.
+  Future<Person?> restoreSession();
+
   /// Devuelve el usuario si los datos son correctos; si no, lanza
-  /// [GymException].
+  /// [GymException]. La sesión queda guardada hasta llamar a [signOut].
   Future<Person> signIn({required String username, required String password});
+
+  Future<void> signOut();
 
   /// Todos los usuarios del sistema.
   Future<List<Person>> getUsers();
