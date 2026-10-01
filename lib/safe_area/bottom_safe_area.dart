@@ -1,0 +1,66 @@
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+
+import 'bottom_inset_stub.dart'
+    if (dart.library.js_interop) 'bottom_inset_web.dart';
+
+/// Reserva la franja inferior de la barra de gestos del celular (la línea de
+/// inicio del iPhone), para que la app no quede dibujada debajo.
+///
+/// Flutter web no siempre informa esa franja: acá se la mide en el navegador
+/// y se la suma al MediaQuery, así SafeArea y las barras inferiores la
+/// respetan.
+class BottomSafeArea extends StatefulWidget {
+  const BottomSafeArea({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<BottomSafeArea> createState() => _BottomSafeAreaState();
+}
+
+class _BottomSafeAreaState extends State<BottomSafeArea>
+    with WidgetsBindingObserver {
+  double _inset = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _inset = measureBottomInset();
+    // Se vuelve a medir con la página ya armada.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Cambia, por ejemplo, al girar el celular.
+  @override
+  void didChangeMetrics() => _measure();
+
+  void _measure() {
+    final inset = measureBottomInset();
+    if (mounted && inset != _inset) setState(() => _inset = inset);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    return MediaQuery(
+      data: media.copyWith(
+        padding: media.padding.copyWith(
+          bottom: max(media.padding.bottom, _inset),
+        ),
+        viewPadding: media.viewPadding.copyWith(
+          bottom: max(media.viewPadding.bottom, _inset),
+        ),
+      ),
+      child: widget.child,
+    );
+  }
+}

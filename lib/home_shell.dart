@@ -100,6 +100,8 @@ class _HomeShellState extends State<HomeShell> {
         shape: const CircularNotchedRectangle(),
         notchMargin: 6,
         padding: .zero,
+        // Es el alto de los botones: la barra además se estira sola hacia
+        // abajo para cubrir la franja de gestos del celular.
         height: 64,
         child: Row(
           children: [

@@ -7,6 +7,7 @@ import 'app_theme.dart';
 import 'config.dart';
 import 'data/gym_store.dart';
 import 'home_shell.dart';
+import 'safe_area/bottom_safe_area.dart';
 import 'screens/login_screen.dart';
 
 Future<void> main() async {
@@ -43,6 +44,7 @@ class _GymAppState extends State<GymApp> {
       locale: const Locale('es'),
       supportedLocales: const [Locale('es')],
       localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      builder: (context, child) => BottomSafeArea(child: child!),
       home: ListenableBuilder(
         listenable: gymStore,
         builder: (context, _) {

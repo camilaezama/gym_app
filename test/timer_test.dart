@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:gym_app/app_theme.dart';
 import 'package:gym_app/data/gym_store.dart';
 import 'package:gym_app/data/mock_gym_repository.dart';
+import 'package:gym_app/home_shell.dart';
 import 'package:gym_app/screens/timer_screen.dart';
 
 void main() {
@@ -112,6 +113,40 @@ void main() {
     final reloaded = GymStore(MockGymRepository());
     await reloaded.load();
     expect(reloaded.prepSeconds, 5);
+  });
+
+  testWidgets('Bottom bar grows to clear the phone gesture strip', (
+    tester,
+  ) async {
+    Future<Size> barSize(double bottomInset) async {
+      await tester.pumpWidget(
+        MediaQuery(
+          data: MediaQueryData(
+            size: const Size(390, 844),
+            padding: EdgeInsets.only(bottom: bottomInset),
+          ),
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: const HomeShell(),
+          ),
+        ),
+      );
+      await tester.pump();
+      return tester.getSize(find.byType(BottomAppBar));
+    }
+
+    expect((await barSize(0)).height, 64);
+    expect((await barSize(34)).height, 98);
+    // Los botones siguen midiendo lo mismo, por encima de la franja.
+    final button = find
+        .descendant(
+          of: find.byType(BottomAppBar),
+          matching: find.byType(InkWell),
+        )
+        .first;
+    expect(tester.getSize(button).height, 64);
+    final barBottom = tester.getBottomLeft(find.byType(BottomAppBar)).dy;
+    expect(tester.getBottomLeft(button).dy, barBottom - 34);
   });
 
   testWidgets('The wheels set minutes and seconds', (tester) async {
