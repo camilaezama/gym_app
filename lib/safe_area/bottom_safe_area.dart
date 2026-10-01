@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -23,18 +24,25 @@ class BottomSafeArea extends StatefulWidget {
 class _BottomSafeAreaState extends State<BottomSafeArea>
     with WidgetsBindingObserver {
   double _inset = 0;
+  final List<Timer> _retries = [];
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _inset = measureBottomInset();
-    // Se vuelve a medir con la página ya armada.
-    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    // El navegador puede tardar en informar la franja: se vuelve a medir
+    // varias veces mientras la página termina de armarse.
+    for (final delay in const [100, 500, 1500, 4000]) {
+      _retries.add(Timer(Duration(milliseconds: delay), _measure));
+    }
   }
 
   @override
   void dispose() {
+    for (final timer in _retries) {
+      timer.cancel();
+    }
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }

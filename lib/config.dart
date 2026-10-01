@@ -15,3 +15,12 @@ bool get supabaseConfigured =>
 /// escribiendo solo "cami", al usuario se le agrega este dominio:
 /// cami -> cami@gym.app. Si se escribe un email completo se usa tal cual.
 const loginEmailDomain = 'gym.app';
+
+/// Commit de git con el que se compiló la versión publicada (lo pasa Vercel,
+/// ver vercel.json). Vacío al correr la app en la compu.
+const appCommit = String.fromEnvironment('COMMIT');
+
+/// Versión corta del commit, como la muestra Vercel ("5ae3a67").
+String get appVersion => appCommit.isEmpty
+    ? 'local'
+    : appCommit.substring(0, appCommit.length < 7 ? appCommit.length : 7);

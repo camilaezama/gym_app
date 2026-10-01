@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../config.dart';
 import '../data/gym_store.dart';
 import '../models.dart';
 
@@ -89,6 +90,15 @@ class ProfileScreen extends StatelessWidget {
               icon: const Icon(Icons.logout),
               label: const Text('Cerrar sesión'),
               onPressed: gymStore.signOut,
+            ),
+            const SizedBox(height: 24),
+            // Sirve para saber qué versión está abierta: el código coincide
+            // con el que muestra Vercel en cada publicación.
+            Text(
+              'Versión $appVersion · franja inferior '
+              '${MediaQuery.paddingOf(context).bottom.round()} px',
+              textAlign: .center,
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
             ),
           ],
         );

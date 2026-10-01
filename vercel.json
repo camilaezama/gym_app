@@ -1,6 +1,6 @@
 {
   "framework": null,
   "installCommand": "git config --global --add safe.directory '*' && git clone https://github.com/flutter/flutter.git --depth 1 -b 3.44.0 _flutter",
-  "buildCommand": "_flutter/bin/flutter build web --release",
+  "buildCommand": "_flutter/bin/flutter build web --release --dart-define=COMMIT=$VERCEL_GIT_COMMIT_SHA",
   "outputDirectory": "build/web"
 }
