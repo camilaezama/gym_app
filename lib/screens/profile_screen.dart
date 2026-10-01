@@ -95,8 +95,7 @@ class ProfileScreen extends StatelessWidget {
             // Sirve para saber qué versión está abierta: el código coincide
             // con el que muestra Vercel en cada publicación.
             Text(
-              'Versión $appVersion · franja inferior '
-              '${MediaQuery.paddingOf(context).bottom.round()} px',
+              'Versión $appVersion',
               textAlign: .center,
               style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
             ),

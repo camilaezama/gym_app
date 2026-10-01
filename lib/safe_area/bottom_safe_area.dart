@@ -6,6 +6,11 @@ import 'package:flutter/material.dart';
 import 'bottom_inset_stub.dart'
     if (dart.library.js_interop) 'bottom_inset_web.dart';
 
+/// Parte de la franja que se reserva. La franja completa que informa el
+/// iPhone (34 px) deja demasiado espacio vacío: con la mitad el menú ya no
+/// queda debajo de la línea de inicio. Subir hacia 1 para dejar más espacio.
+const _insetFraction = 0.5;
+
 /// Reserva la franja inferior de la barra de gestos del celular (la línea de
 /// inicio del iPhone), para que la app no quede dibujada debajo.
 ///
@@ -30,7 +35,7 @@ class _BottomSafeAreaState extends State<BottomSafeArea>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _inset = measureBottomInset();
+    _inset = measureBottomInset() * _insetFraction;
     // El navegador puede tardar en informar la franja: se vuelve a medir
     // varias veces mientras la página termina de armarse.
     for (final delay in const [100, 500, 1500, 4000]) {
@@ -52,7 +57,7 @@ class _BottomSafeAreaState extends State<BottomSafeArea>
   void didChangeMetrics() => _measure();
 
   void _measure() {
-    final inset = measureBottomInset();
+    final inset = measureBottomInset() * _insetFraction;
     if (mounted && inset != _inset) setState(() => _inset = inset);
   }
 
