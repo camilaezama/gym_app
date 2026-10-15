@@ -116,23 +116,29 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           listenable: gymStore,
           builder: (context, _) {
             final settings = gymStore.notificationSettings;
+            // Los textos aclaratorios solo los ve quien maneja los mensajes.
+            final isAdmin = gymStore.canManageTrainingMessages;
             return ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
               children: [
-                Text(
-                  'Llegan a las 10 de la mañana. En el iPhone tenés que abrir '
-                  'la app desde el ícono de la pantalla de inicio.',
-                  style: TextStyle(color: scheme.onSurfaceVariant),
-                ),
-                const SizedBox(height: 8),
+                if (isAdmin) ...[
+                  Text(
+                    'Llegan a las 10 de la mañana. En el iPhone tenés que abrir '
+                    'la app desde el ícono de la pantalla de inicio.',
+                    style: TextStyle(color: scheme.onSurfaceVariant),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(Icons.receipt_long_outlined),
                   title: const Text('Recordatorio de pago'),
-                  subtitle: const Text(
-                    'Cuando faltan 3 días y el día que se cumple el mes del '
-                    'último pago.',
-                  ),
+                  subtitle: isAdmin
+                      ? const Text(
+                          'Cuando faltan 3 días y el día que se cumple el mes '
+                          'del último pago.',
+                        )
+                      : null,
                   value: settings.paymentReminders,
                   onChanged: (value) => _set(payment: value),
                 ),
@@ -140,12 +146,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   contentPadding: EdgeInsets.zero,
                   secondary: const Icon(Icons.fitness_center_outlined),
                   title: const Text('Días de entrenamiento'),
-                  subtitle: Text(
-                    gymStore.canManageTrainingMessages
-                        ? 'Un mensaje al azar de los de abajo los días que '
-                              'elijas.'
-                        : 'Un mensaje para motivarte los días que elijas.',
-                  ),
+                  subtitle: isAdmin
+                      ? const Text(
+                          'Un mensaje al azar de los de abajo los días que '
+                          'elijas.',
+                        )
+                      : null,
                   value: settings.trainingReminders,
                   onChanged: (value) => _set(training: value),
                 ),
@@ -189,7 +195,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     ),
                   ),
                 ],
-                if (gymStore.canManageTrainingMessages) ...[
+                if (isAdmin) ...[
                   const SizedBox(height: 24),
                   Row(
                     children: [
