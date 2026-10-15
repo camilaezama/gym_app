@@ -51,6 +51,9 @@ class MockGymRepository implements GymRepository {
     _seed('Sentadilla Isometrica', .inferior, .tiempo, 30, 30),
   ];
 
+  // Arranca sin músculos: todos los ejercicios están en General.
+  final List<Muscle> _muscles = [];
+
   // Rutinas de ejemplo para que el historial no arranque vacío.
   late final List<Routine> _routines = [
     Routine(
@@ -73,6 +76,23 @@ class MockGymRepository implements GymRepository {
         _entry('Bicep martillo con mancuernas', [5]),
       ],
     ),
+  ];
+
+  // Pagos de ejemplo: el de Cami está por vencer, para ver el aviso.
+  late final List<Payment> _payments = [
+    Payment(id: _newId(), personId: _cami, date: _daysAgo(59), amount: 25000),
+    Payment(id: _newId(), personId: _cami, date: _daysAgo(28), amount: 28000),
+    Payment(id: _newId(), personId: _agos, date: _daysAgo(10)),
+  ];
+
+  DateTime _daysAgo(int days) =>
+      dateOnly(DateTime.now()).subtract(Duration(days: days));
+
+  final Map<String, NotificationSettings> _notificationSettings = {};
+
+  late final List<TrainingMessage> _trainingMessages = [
+    for (final text in ['Hoy gymmm', 'Hoy se entrena', 'Hoy musculamos'])
+      TrainingMessage(id: _newId(), text: text),
   ];
 
   String _newId() => '${_nextId++}';
@@ -119,6 +139,7 @@ class MockGymRepository implements GymRepository {
       if (user.id == id && password == _password) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setString(_sessionKey, user.id);
+        currentUsername = user.id;
         return user;
       }
     }
@@ -130,15 +151,22 @@ class MockGymRepository implements GymRepository {
     final prefs = await SharedPreferences.getInstance();
     final id = prefs.getString(_sessionKey);
     for (final user in _users) {
-      if (user.id == id) return user;
+      if (user.id == id) {
+        currentUsername = user.id;
+        return user;
+      }
     }
     return null;
   }
 
   @override
+  String? currentUsername;
+
+  @override
   Future<void> signOut() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_sessionKey);
+    currentUsername = null;
   }
 
   @override
@@ -176,6 +204,7 @@ class MockGymRepository implements GymRepository {
       name: exercise.name,
       bodyPart: exercise.bodyPart,
       weightType: exercise.weightType,
+      muscleId: exercise.muscleId,
       initialWeights: exercise.initialWeights,
     );
     _exercises.add(saved);
@@ -192,6 +221,40 @@ class MockGymRepository implements GymRepository {
   Future<void> deleteExercise(String id) async {
     final index = _exercises.indexWhere((e) => e.id == id);
     _exercises[index] = _exercises[index].copyWith(archived: true);
+  }
+
+  @override
+  Future<List<Muscle>> getMuscles(Set<String> ownerIds) async => [
+    for (final muscle in _muscles)
+      if (ownerIds.contains(muscle.ownerId)) muscle,
+  ];
+
+  @override
+  Future<Muscle> addMuscle(Muscle muscle) async {
+    final saved = Muscle(
+      id: _newId(),
+      name: muscle.name,
+      bodyPart: muscle.bodyPart,
+      ownerId: muscle.ownerId,
+      icon: muscle.icon,
+    );
+    _muscles.add(saved);
+    return saved;
+  }
+
+  @override
+  Future<void> updateMuscle(Muscle muscle) async {
+    _muscles[_muscles.indexWhere((m) => m.id == muscle.id)] = muscle;
+  }
+
+  @override
+  Future<void> deleteMuscle(String id) async {
+    _muscles.removeWhere((m) => m.id == id);
+    for (var i = 0; i < _exercises.length; i++) {
+      if (_exercises[i].muscleId == id) {
+        _exercises[i] = _exercises[i].copyWith(clearMuscle: true);
+      }
+    }
   }
 
   @override
@@ -220,5 +283,87 @@ class MockGymRepository implements GymRepository {
   @override
   Future<void> deleteRoutine(String id) async {
     _routines.removeWhere((r) => r.id == id);
+  }
+
+  @override
+  Future<List<Payment>> getPayments(String personId) async => [
+    for (final payment in _payments)
+      if (payment.personId == personId) payment,
+  ];
+
+  @override
+  Future<void> addPayments(
+    DateTime date,
+    List<String> personIds, {
+    double? amount,
+  }) async {
+    _payments.addAll([
+      for (final id in personIds)
+        Payment(id: _newId(), personId: id, date: date, amount: amount),
+    ]);
+  }
+
+  @override
+  Future<void> updatePayment(Payment payment) async {
+    final index = _payments.indexWhere((p) => p.id == payment.id);
+    if (index >= 0) _payments[index] = payment;
+  }
+
+  @override
+  Future<void> deletePayment(String id) async {
+    _payments.removeWhere((p) => p.id == id);
+  }
+
+  @override
+  Future<NotificationSettings> getNotificationSettings(String userId) async =>
+      _notificationSettings[userId] ?? const NotificationSettings();
+
+  @override
+  Future<void> saveNotificationSettings(
+    String userId,
+    NotificationSettings settings,
+  ) async {
+    _notificationSettings[userId] = settings;
+  }
+
+  @override
+  Future<List<TrainingMessage>> getTrainingMessages() async =>
+      List.of(_trainingMessages);
+
+  @override
+  Future<TrainingMessage> addTrainingMessage(String text) async {
+    final saved = TrainingMessage(id: _newId(), text: text);
+    _trainingMessages.add(saved);
+    return saved;
+  }
+
+  @override
+  Future<void> updateTrainingMessage(TrainingMessage message) async {
+    final index = _trainingMessages.indexWhere((m) => m.id == message.id);
+    _trainingMessages[index] = message;
+  }
+
+  @override
+  Future<void> deleteTrainingMessage(String id) async {
+    _trainingMessages.removeWhere((m) => m.id == id);
+  }
+
+  // Sin servidor no se mandan notificaciones: estos no hacen nada.
+  @override
+  Future<void> savePushSubscription(String subscription) async {}
+
+  @override
+  Future<void> deletePushSubscription(String endpoint) async {}
+
+  @override
+  Future<void> sendTestNotification() async {}
+
+  /// Nadie más usa la base de mentira: no hay cambios que avisar.
+  @override
+  void Function() watchChanges({
+    required void Function(String table) onChange,
+    required void Function() onConnected,
+  }) {
+    return () {};
   }
 }

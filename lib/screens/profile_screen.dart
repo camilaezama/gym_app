@@ -2,10 +2,17 @@ import 'package:flutter/material.dart';
 
 import '../config.dart';
 import '../data/gym_store.dart';
+import '../format.dart';
 import '../models.dart';
+import 'calendar_screen.dart';
+import 'muscles_screen.dart';
+import 'notifications_screen.dart';
+import 'payments_screen.dart';
+import '../widgets/save_error.dart';
 
 /// Muestra el usuario que inició sesión y permite elegir qué amigos quedan
-/// conectados.
+/// conectados, cargar los pagos del gimnasio y abrir la configuración de
+/// los músculos.
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
 
@@ -50,8 +57,31 @@ class ProfileScreen extends StatelessWidget {
                 secondary: _Avatar(person: other, radius: 20),
                 title: Text(other.name),
                 value: gymStore.friendIds.contains(other.id),
-                onChanged: (value) => gymStore.setFriend(other.id, value),
+                onChanged: (value) => trySaving(
+                  ScaffoldMessenger.of(context),
+                  () => gymStore.setFriend(other.id, value),
+                ),
               ),
+            const SizedBox(height: 24),
+            // No es const para que se vuelva a armar cuando cambian los pagos.
+            _PaymentSection(),
+            const SizedBox(height: 24),
+            const Text(
+              'Notificaciones',
+              style: TextStyle(fontSize: 16, fontWeight: .bold),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.notifications_outlined),
+              title: Text(_notificationsSummary()),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const NotificationsScreen(),
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
             const Text(
               'Temporizador',
@@ -86,6 +116,36 @@ class ProfileScreen extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 24),
+            const Text(
+              'Asistencia',
+              style: TextStyle(fontSize: 16, fontWeight: .bold),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.calendar_month_outlined),
+              title: const Text('Calendario de días entrenados'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(builder: (_) => const CalendarScreen()),
+              ),
+            ),
+            const SizedBox(height: 24),
+            const Text(
+              'Músculos',
+              style: TextStyle(fontSize: 16, fontWeight: .bold),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.accessibility_new),
+              title: const Text('Configurar músculos'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute<void>(builder: (_) => const MusclesScreen()),
+              ),
+            ),
+            const SizedBox(height: 24),
             OutlinedButton.icon(
               icon: const Icon(Icons.logout),
               label: const Text('Cerrar sesión'),
@@ -102,6 +162,79 @@ class ProfileScreen extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+/// "Desactivadas", "Pago y entrenamiento"...
+String _notificationsSummary() {
+  final settings = gymStore.notificationSettings;
+  return switch ((settings.paymentReminders, settings.trainingReminders)) {
+    (true, true) => 'Pago y entrenamiento',
+    (true, false) => 'Recordatorio de pago',
+    (false, true) => 'Días de entrenamiento',
+    (false, false) => 'Desactivadas',
+  };
+}
+
+/// El último pago del gimnasio y un botón para agregar otro. Al tocarlo se
+/// abre el historial de pagos.
+class _PaymentSection extends StatelessWidget {
+  // ignore: prefer_const_constructors_in_immutables
+  _PaymentSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final last = gymStore.lastPayment;
+    final days = gymStore.daysUntilPaymentDue;
+    final warn = days != null && days <= paymentWarningDays;
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        const Text(
+          'Pago del gimnasio',
+          style: TextStyle(fontSize: 16, fontWeight: .bold),
+        ),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: const Icon(Icons.receipt_long_outlined),
+          title: Text(
+            last == null
+                ? 'Sin pagos cargados'
+                : [
+                    'Último pago: ${formatDate(last.date)}',
+                    if (last.amount case final amount?) formatMoney(amount),
+                  ].join(' · '),
+          ),
+          subtitle: last == null
+              ? null
+              : Text(
+                  warn
+                      ? paymentDueText(days)
+                      : 'Vence el ${formatDate(last.dueDate)}',
+                  style: warn
+                      ? TextStyle(
+                          color: days < 0 ? scheme.error : scheme.tertiary,
+                          fontWeight: .w600,
+                        )
+                      : null,
+                ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => Navigator.push(
+            context,
+            MaterialPageRoute<void>(builder: (_) => const PaymentsScreen()),
+          ),
+        ),
+        Align(
+          alignment: .centerLeft,
+          child: OutlinedButton.icon(
+            icon: const Icon(Icons.add),
+            label: const Text('Agregar pago'),
+            onPressed: () => showAddPaymentDialog(context),
+          ),
+        ),
+      ],
     );
   }
 }

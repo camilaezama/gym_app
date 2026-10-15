@@ -313,9 +313,9 @@ class _WheelState extends State<_Wheel> {
           // Por defecto el mouse no arrastra listas: se habilita para poder
           // usar la rueda también desde la computadora.
           child: ScrollConfiguration(
-            behavior: ScrollConfiguration.of(context).copyWith(
-              dragDevices: {...PointerDeviceKind.values},
-            ),
+            behavior: ScrollConfiguration.of(
+              context,
+            ).copyWith(dragDevices: {...PointerDeviceKind.values}),
             child: CupertinoPicker(
               scrollController: _controller,
               itemExtent: 52,

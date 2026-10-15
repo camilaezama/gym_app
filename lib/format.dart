@@ -23,3 +23,30 @@ String formatDate(DateTime date) {
 }
 
 DateTime dateOnly(DateTime date) => DateTime(date.year, date.month, date.day);
+
+const _weekdayNames = [
+  'LUNES',
+  'MARTES',
+  'MIÉRCOLES',
+  'JUEVES',
+  'VIERNES',
+  'SÁBADO',
+  'DOMINGO',
+];
+
+/// "LUNES 14/10/26"
+String formatDateWithWeekday(DateTime date) =>
+    '${_weekdayNames[date.weekday - 1]} ${formatDate(date)}';
+
+/// 25000 -> "$ 25.000", 1500.5 -> "$ 1.500,50".
+String formatMoney(double amount) {
+  final cents = (amount * 100).round();
+  final whole = (cents ~/ 100).toString().replaceAllMapped(
+    RegExp(r'\B(?=(\d{3})+$)'),
+    (_) => '.',
+  );
+  final rest = cents % 100;
+  return rest == 0
+      ? '\$ $whole'
+      : '\$ $whole,${rest.toString().padLeft(2, '0')}';
+}

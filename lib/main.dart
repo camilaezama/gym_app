@@ -9,6 +9,7 @@ import 'data/gym_store.dart';
 import 'home_shell.dart';
 import 'safe_area/bottom_safe_area.dart';
 import 'screens/login_screen.dart';
+import 'widgets/gym_loader.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,10 +30,21 @@ class GymApp extends StatefulWidget {
 }
 
 class _GymAppState extends State<GymApp> {
+  // Con la app en segundo plano el celular puede cortar la conexión y
+  // perderse cambios de otros usuarios: al volver se recarga todo.
+  late final AppLifecycleListener _lifecycle;
+
   @override
   void initState() {
     super.initState();
     gymStore.load();
+    _lifecycle = AppLifecycleListener(onResume: () => gymStore.refresh());
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    super.dispose();
   }
 
   @override
@@ -49,9 +61,7 @@ class _GymAppState extends State<GymApp> {
         listenable: gymStore,
         builder: (context, _) {
           if (!gymStore.loaded) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
-            );
+            return const Scaffold(body: Center(child: GymLoader()));
           }
           // El login solo aparece si no hay una sesión guardada.
           if (gymStore.currentUser == null) return const LoginScreen();

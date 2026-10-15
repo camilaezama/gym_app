@@ -23,6 +23,9 @@ abstract class GymRepository {
 
   Future<void> signOut();
 
+  /// Nombre con el que entró el usuario actual ("cami"), o null sin sesión.
+  String? get currentUsername;
+
   /// Todos los usuarios del sistema.
   Future<List<Person>> getUsers();
 
@@ -49,6 +52,19 @@ abstract class GymRepository {
   /// ya lo usaron.
   Future<void> deleteExercise(String id);
 
+  /// Músculos creados por alguna de esas personas, en el orden en que se
+  /// crearon.
+  Future<List<Muscle>> getMuscles(Set<String> ownerIds);
+
+  /// Devuelve el músculo guardado, con su id asignado.
+  Future<Muscle> addMuscle(Muscle muscle);
+
+  /// Guarda el nombre y el ícono de un músculo existente.
+  Future<void> updateMuscle(Muscle muscle);
+
+  /// Los ejercicios que lo usaban quedan sin músculo (van a General).
+  Future<void> deleteMuscle(String id);
+
   /// Rutinas en las que participa alguna de esas personas.
   Future<List<Routine>> getRoutines(Set<String> personIds);
 
@@ -57,4 +73,59 @@ abstract class GymRepository {
   Future<Routine> saveRoutine(Routine routine);
 
   Future<void> deleteRoutine(String id);
+
+  /// Pagos de esa persona, en cualquier orden.
+  Future<List<Payment>> getPayments(String personId);
+
+  /// Guarda un pago con esa fecha (y monto, si se pasa) para cada una de las
+  /// personas.
+  Future<void> addPayments(
+    DateTime date,
+    List<String> personIds, {
+    double? amount,
+  });
+
+  /// Guarda la fecha y el monto de un pago existente.
+  Future<void> updatePayment(Payment payment);
+
+  Future<void> deletePayment(String id);
+
+  /// Configuración de notificaciones del usuario; todas desactivadas si
+  /// nunca la guardó.
+  Future<NotificationSettings> getNotificationSettings(String userId);
+
+  Future<void> saveNotificationSettings(
+    String userId,
+    NotificationSettings settings,
+  );
+
+  /// Mensajes de los días de entrenamiento, en el orden en que se crearon.
+  Future<List<TrainingMessage>> getTrainingMessages();
+
+  /// Devuelve el mensaje guardado, con su id asignado.
+  Future<TrainingMessage> addTrainingMessage(String text);
+
+  Future<void> updateTrainingMessage(TrainingMessage message);
+
+  Future<void> deleteTrainingMessage(String id);
+
+  /// Registra este dispositivo para que le lleguen las notificaciones del
+  /// usuario actual. [subscription] es el JSON que da el navegador.
+  Future<void> savePushSubscription(String subscription);
+
+  /// Deja de mandarle notificaciones a ese dispositivo.
+  Future<void> deletePushSubscription(String endpoint);
+
+  /// Le manda ahora una notificación de prueba a los dispositivos del
+  /// usuario actual.
+  Future<void> sendTestNotification();
+
+  /// Avisa a [onChange] con el nombre de la tabla cada vez que alguien (este
+  /// u otro dispositivo) cambia algo en la base, y a [onConnected] cada vez
+  /// que se conecta o reconecta, porque mientras estuvo desconectado se
+  /// pudieron perder avisos. Devuelve una función para dejar de escuchar.
+  void Function() watchChanges({
+    required void Function(String table) onChange,
+    required void Function() onConnected,
+  });
 }

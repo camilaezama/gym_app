@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../data/gym_store.dart';
-import '../widgets/add_exercise_dialog.dart';
 import '../widgets/exercise_table.dart';
 import 'exercise_detail_screen.dart';
 import '../widgets/person_filter.dart';
@@ -35,20 +34,9 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Ejercicios',
-                      style: Theme.of(context).textTheme.headlineSmall,
-                    ),
-                  ),
-                  FilledButton.icon(
-                    icon: const Icon(Icons.add),
-                    label: const Text('Agregar ejercicio'),
-                    onPressed: () => showAddExerciseDialog(context),
-                  ),
-                ],
+              child: Text(
+                'Ejercicios',
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
             ),
             Padding(
@@ -66,6 +54,7 @@ class _ExercisesScreenState extends State<ExercisesScreen> {
                 children: [
                   ExerciseTable(
                     people: people,
+                    byMuscle: true,
                     editTooltip: 'Editar ejercicio',
                     onEdit: (row) => Navigator.push(
                       context,

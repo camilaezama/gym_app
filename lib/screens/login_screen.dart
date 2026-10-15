@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../data/gym_repository.dart';
 import '../data/gym_store.dart';
+import '../widgets/gym_loader.dart';
 
 /// Se muestra solo mientras no haya una sesión guardada en el dispositivo.
 class LoginScreen extends StatefulWidget {
@@ -31,23 +32,30 @@ class _LoginScreenState extends State<LoginScreen> {
       _error = null;
     });
     try {
-      await gymStore.signIn(
-        username: _username.text,
-        password: _password.text,
-      );
+      await gymStore.signIn(username: _username.text, password: _password.text);
     } on GymException catch (e) {
-      if (mounted) {
-        setState(() {
-          _busy = false;
-          _error = e.message;
-        });
-      }
+      _fail(e.message);
+    } catch (_) {
+      _fail('No se pudo iniciar sesión. Revisá tu conexión.');
     }
+  }
+
+  void _fail(String message) {
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      _error = message;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    if (_busy) {
+      return const Scaffold(
+        body: Center(child: GymLoader(message: 'Iniciando sesión...')),
+      );
+    }
     return Scaffold(
       body: SafeArea(
         child: Center(

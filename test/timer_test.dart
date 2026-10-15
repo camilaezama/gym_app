@@ -125,10 +125,7 @@ void main() {
             size: const Size(390, 844),
             padding: EdgeInsets.only(bottom: bottomInset),
           ),
-          child: MaterialApp(
-            theme: AppTheme.light,
-            home: const HomeShell(),
-          ),
+          child: MaterialApp(theme: AppTheme.light, home: const HomeShell()),
         ),
       );
       await tester.pump();

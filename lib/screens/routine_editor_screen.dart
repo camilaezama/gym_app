@@ -4,10 +4,13 @@ import '../data/gym_store.dart';
 import '../format.dart';
 import '../models.dart';
 import '../widgets/exercise_table.dart';
+import '../widgets/muscle_icon.dart';
 import '../widgets/weights_field.dart';
 import '../widgets/who_trains_dialog.dart';
+import '../widgets/save_error.dart';
 
-/// Crea o edita la rutina de un día.
+/// Crea o edita la rutina de un día. Cada cambio se guarda al instante, y
+/// los que hacen otros dispositivos aparecen solos.
 class RoutineEditorScreen extends StatefulWidget {
   const RoutineEditorScreen({super.key, required this.routine});
 
@@ -19,14 +22,55 @@ class RoutineEditorScreen extends StatefulWidget {
 }
 
 class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
-  late DateTime _date = widget.routine.date;
-  late List<String> _personIds = [...widget.routine.personIds];
-  late final List<RoutineEntry> _entries = [...widget.routine.entries];
+  late String? _id = widget.routine.id;
+
+  /// La rutina nueva mientras todavía no se creó en la base: se crea recién
+  /// al agregar el primer ejercicio.
+  late Routine _draft = widget.routine;
+
+  /// Mientras se crea la rutina, los cambios se juntan en [_draft].
+  bool _creating = false;
+
+  /// Si ya se está cerrando la pantalla porque se eliminó la rutina.
+  bool _closing = false;
+
+  /// La versión guardada en el store, que incluye los cambios hechos desde
+  /// otros dispositivos.
+  Routine get _routine =>
+      (_id == null ? null : gymStore.routineById(_id!)) ?? _draft;
 
   List<Person> get _people => [
     for (final person in gymStore.people)
-      if (_personIds.contains(person.id)) person,
+      if (_routine.personIds.contains(person.id)) person,
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    gymStore.addListener(_onStoreChanged);
+  }
+
+  @override
+  void dispose() {
+    gymStore.removeListener(_onStoreChanged);
+    super.dispose();
+  }
+
+  void _onStoreChanged() {
+    if (_closing) return;
+    // Otra persona eliminó la rutina mientras estaba abierta.
+    if (_id != null &&
+        gymStore.routineById(_id!) == null &&
+        !gymStore.savingRoutines) {
+      _closing = true;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('La rutina fue eliminada.')));
+      Navigator.pop(context);
+      return;
+    }
+    setState(() {});
+  }
 
   /// Últimos pesos usados por cada persona de la rutina en ese ejercicio.
   Map<String, List<double>> _lastWeights(
@@ -36,85 +80,167 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
     return {for (final id in ids) id: ?gymStore.lastWeights(exerciseId, id)};
   }
 
+  /// Aplica el cambio sobre la última versión de la rutina y lo guarda.
+  void _change(Routine Function(Routine routine) change) {
+    final messenger = ScaffoldMessenger.of(context);
+    final updated = change(_routine);
+    if (_id != null) {
+      _save(updated, messenger);
+      return;
+    }
+    setState(() => _draft = updated);
+    if (!_creating && updated.entries.isNotEmpty) _create(messenger);
+  }
+
+  Future<void> _save(Routine routine, ScaffoldMessengerState messenger) async {
+    try {
+      await gymStore.saveRoutine(routine);
+    } catch (_) {
+      _showSaveError(messenger);
+    }
+  }
+
+  Future<void> _create(ScaffoldMessengerState messenger) async {
+    _creating = true;
+    final sent = _draft;
+    try {
+      final saved = await gymStore.saveRoutine(sent);
+      _id = saved.id;
+      // Los cambios hechos mientras se creaba.
+      if (!identical(_draft, sent)) {
+        _save(_draft.copyWith(id: saved.id), messenger);
+      }
+    } catch (_) {
+      // Se vuelve a intentar con el próximo cambio.
+      _showSaveError(messenger);
+    } finally {
+      _creating = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  void _showSaveError(ScaffoldMessengerState messenger) {
+    messenger.showSnackBar(
+      const SnackBar(
+        content: Text('No se pudo guardar el cambio. Revisá la conexión.'),
+      ),
+    );
+  }
+
   Future<void> _pickDate() async {
     final today = dateOnly(DateTime.now());
     final picked = await showDatePicker(
       context: context,
-      initialDate: _date,
+      initialDate: _routine.date,
       firstDate: DateTime(2020),
       lastDate: today.add(const Duration(days: 365)),
     );
-    if (picked != null) setState(() => _date = picked);
+    if (picked != null && mounted) {
+      _change((routine) => routine.copyWith(date: picked));
+    }
   }
 
   Future<void> _editPeople() async {
-    final chosen = await showWhoTrainsDialog(context, initial: _personIds);
-    if (chosen == null) return;
-    // El diálogo solo lista a los conectados: quien participa de la rutina
-    // sin estar conectado en este dispositivo se mantiene.
-    final connected = gymStore.connectedIds;
-    final ids = [
-      ...chosen,
-      ..._personIds.where((id) => !connected.contains(id)),
-    ];
-    setState(() {
-      final added = ids.where((id) => !_personIds.contains(id)).toList();
-      for (var i = 0; i < _entries.length; i++) {
-        final entry = _entries[i];
-        _entries[i] = RoutineEntry(
-          exerciseId: entry.exerciseId,
-          weights: {
-            ...entry.weights,
-            ..._lastWeights(entry.exerciseId, added),
-          },
-        );
-      }
-      _personIds = ids;
+    final chosen = await showWhoTrainsDialog(
+      context,
+      initial: _routine.personIds,
+    );
+    if (chosen == null || !mounted) return;
+    _change((routine) {
+      // El diálogo solo lista a los conectados: quien participa de la rutina
+      // sin estar conectado en este dispositivo se mantiene.
+      final connected = gymStore.connectedIds;
+      final ids = [
+        ...chosen,
+        ...routine.personIds.where((id) => !connected.contains(id)),
+      ];
+      final added = ids.where((id) => !routine.personIds.contains(id));
+      return routine.copyWith(
+        personIds: ids,
+        entries: [
+          for (final entry in routine.entries)
+            RoutineEntry(
+              exerciseId: entry.exerciseId,
+              // Se descartan los pesos de quienes se sacaron de la rutina.
+              weights: {
+                for (final id in ids) id: ?entry.weights[id],
+                ..._lastWeights(entry.exerciseId, added),
+              },
+            ),
+        ],
+      );
     });
   }
 
-  Future<void> _addExercises() async {
-    final used = {for (final entry in _entries) entry.exerciseId};
+  Future<void> _addExercises(BodyPart part) async {
+    final used = {for (final entry in _routine.entries) entry.exerciseId};
     final ids = await showDialog<List<String>>(
       context: context,
       builder: (context) => _ExercisePickerDialog(
+        part: part,
         exercises: [
           for (final exercise in gymStore.activeExercises)
-            if (!used.contains(exercise.id)) exercise,
+            if (exercise.bodyPart == part && !used.contains(exercise.id))
+              exercise,
         ],
       ),
     );
-    if (ids == null) return;
-    setState(() {
-      for (final id in ids) {
-        _entries.add(
-          RoutineEntry(exerciseId: id, weights: _lastWeights(id, _personIds)),
-        );
-      }
+    if (ids == null || !mounted) return;
+    _change((routine) {
+      // Otra persona pudo haber agregado alguno mientras se elegía.
+      final present = {for (final entry in routine.entries) entry.exerciseId};
+      return routine.copyWith(
+        entries: [
+          ...routine.entries,
+          for (final id in ids)
+            if (!present.contains(id))
+              RoutineEntry(
+                exerciseId: id,
+                weights: _lastWeights(id, routine.personIds),
+              ),
+        ],
+      );
     });
   }
 
   Future<void> _editEntry(ExerciseRow row) async {
+    final people = _people;
     final weights = await showDialog<Map<String, List<double>>>(
       context: context,
-      builder: (context) => _WeightsDialog(row: row, people: _people),
+      builder: (context) => _WeightsDialog(row: row, people: people),
     );
-    if (weights == null) return;
-    setState(() {
-      final index = _entries.indexWhere(
-        (e) => e.exerciseId == row.exercise.id,
-      );
-      _entries[index] = RoutineEntry(
-        exerciseId: row.exercise.id!,
-        weights: weights,
-      );
-    });
+    if (weights == null || !mounted) return;
+    _change(
+      (routine) => routine.copyWith(
+        entries: [
+          for (final entry in routine.entries)
+            entry.exerciseId == row.exercise.id
+                ? RoutineEntry(
+                    exerciseId: entry.exerciseId,
+                    // Se mantienen los pesos de quienes no aparecían en el
+                    // diálogo.
+                    weights: {
+                      for (final MapEntry(:key, :value)
+                          in entry.weights.entries)
+                        if (!people.any((p) => p.id == key)) key: value,
+                      ...weights,
+                    },
+                  )
+                : entry,
+        ],
+      ),
+    );
   }
 
   void _removeEntry(ExerciseRow row) {
-    setState(() {
-      _entries.removeWhere((e) => e.exerciseId == row.exercise.id);
-    });
+    _change(
+      (routine) => routine.copyWith(
+        entries: [
+          for (final entry in routine.entries)
+            if (entry.exerciseId != row.exercise.id) entry,
+        ],
+      ),
+    );
   }
 
   Future<void> _deleteRoutine() async {
@@ -123,7 +249,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
       builder: (context) => AlertDialog(
         title: const Text('¿Eliminar rutina?'),
         content: Text(
-          'Se va a eliminar la rutina del ${formatDate(widget.routine.date)} '
+          'Se va a eliminar la rutina del ${formatDate(_routine.date)} '
           'completa. No se puede deshacer.',
         ),
         actions: [
@@ -142,35 +268,23 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
         ],
       ),
     );
-    if (confirmed != true) return;
-    await gymStore.deleteRoutine(widget.routine.id!);
-    if (mounted) Navigator.pop(context);
-  }
-
-  Future<void> _save() async {
-    await gymStore.saveRoutine(
-      Routine(
-        id: widget.routine.id,
-        date: _date,
-        personIds: _personIds,
-        entries: [
-          for (final entry in _entries)
-            RoutineEntry(
-              exerciseId: entry.exerciseId,
-              // Se descartan los pesos de personas que se sacaron de la rutina.
-              weights: {
-                for (final id in _personIds) id: ?entry.weights[id],
-              },
-            ),
-        ],
-      ),
+    if (confirmed != true || !mounted || _closing) return;
+    _closing = true;
+    final deleted = await trySaving(
+      ScaffoldMessenger.of(context),
+      () => gymStore.deleteRoutine(_id!),
     );
+    if (!deleted) {
+      _closing = false;
+      return;
+    }
     if (mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final routine = _routine;
     final people = _people;
     return Scaffold(
       appBar: AppBar(
@@ -178,7 +292,27 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
           widget.routine.id == null ? 'Nueva rutina' : 'Editar rutina',
         ),
         actions: [
-          if (widget.routine.id != null)
+          // No hay botón de guardar: los cambios se guardan solos.
+          if (_id != null || _creating)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: gymStore.savingRoutines || _creating
+                  ? const Tooltip(
+                      message: 'Guardando…',
+                      child: SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : Tooltip(
+                      message: 'Guardado',
+                      child: Icon(
+                        Icons.cloud_done_outlined,
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+            ),
+          if (_id != null)
             IconButton(
               icon: const Icon(Icons.delete_outline),
               tooltip: 'Eliminar rutina',
@@ -194,7 +328,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
               onPressed: _pickDate,
               icon: const Icon(Icons.calendar_today, size: 20),
               label: Text(
-                formatDate(_date),
+                formatDate(routine.date),
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
             ),
@@ -207,15 +341,33 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
               TextButton(onPressed: _editPeople, child: const Text('Cambiar')),
             ],
           ),
-          Align(
-            alignment: .centerRight,
-            child: OutlinedButton.icon(
-              onPressed: _addExercises,
-              icon: const Icon(Icons.add),
-              label: const Text('Agregar ejercicio'),
-            ),
+          const SizedBox(height: 8),
+          Text(
+            'Agregar ejercicio',
+            textAlign: .center,
+            style: TextStyle(color: scheme.onSurfaceVariant),
           ),
-          if (_entries.isEmpty)
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _addExercises(.inferior),
+                  icon: const Icon(Icons.add),
+                  label: Text(BodyPart.inferior.label),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: () => _addExercises(.superior),
+                  icon: const Icon(Icons.add),
+                  label: Text(BodyPart.superior.label),
+                ),
+              ),
+            ],
+          ),
+          if (routine.entries.isEmpty)
             Padding(
               padding: const EdgeInsets.only(top: 48),
               child: Text(
@@ -230,7 +382,7 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
               onEdit: _editEntry,
               onDelete: _removeEntry,
               rows: [
-                for (final entry in _entries)
+                for (final entry in routine.entries)
                   if (gymStore.exerciseById(entry.exerciseId)
                       case final exercise?)
                     ExerciseRow(exercise, entry.weights),
@@ -238,23 +390,17 @@ class _RoutineEditorScreenState extends State<RoutineEditorScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: FilledButton(
-            onPressed: _entries.isEmpty ? null : _save,
-            child: const Text('Guardar'),
-          ),
-        ),
-      ),
     );
   }
 }
 
 /// Lista de ejercicios para elegir cuáles agregar a la rutina.
 class _ExercisePickerDialog extends StatefulWidget {
-  const _ExercisePickerDialog({required this.exercises});
+  const _ExercisePickerDialog({required this.part, required this.exercises});
 
+  final BodyPart part;
+
+  /// Ejercicios de [part] que todavía no están en la rutina.
   final List<Exercise> exercises;
 
   @override
@@ -268,37 +414,38 @@ class _ExercisePickerDialogState extends State<_ExercisePickerDialog> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return AlertDialog(
-      title: const Text('Agregar ejercicios'),
+      title: Text(widget.part.label),
       contentPadding: const EdgeInsets.symmetric(vertical: 12),
       content: SizedBox(
         width: double.maxFinite,
         child: widget.exercises.isEmpty
             ? const Padding(
                 padding: EdgeInsets.all(24),
-                child: Text('Ya agregaste todos los ejercicios.'),
+                child: Text('No quedan ejercicios de este tren para agregar.'),
               )
             : ListView(
                 shrinkWrap: true,
                 children: [
-                  for (final part in BodyPart.values) ...[
-                    if (widget.exercises.any((e) => e.bodyPart == part))
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
-                        child: Text(
-                          part.label.toUpperCase(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: .bold,
-                            color: scheme.onSurfaceVariant,
-                          ),
+                  for (final group in gymStore.groupByMuscle(
+                    widget.part,
+                    widget.exercises,
+                    (exercise) => exercise,
+                  )) ...[
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(24, 8, 24, 0),
+                      child: Text(
+                        group.name,
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: .w600,
+                          color: scheme.primary,
                         ),
                       ),
-                    for (final exercise in widget.exercises.where(
-                      (e) => e.bodyPart == part,
-                    ))
+                    ),
+                    for (final exercise in group.items)
                       CheckboxListTile(
                         dense: true,
-                        secondary: Icon(exercise.weightType.icon),
+                        secondary: ExerciseIcon(exercise, size: 24),
                         title: Text(exercise.name),
                         value: _selected.contains(exercise.id),
                         onChanged: (value) => setState(() {
@@ -377,9 +524,7 @@ class _WeightsDialogState extends State<_WeightsDialog> {
                   children: [
                     SizedBox(width: 70, child: Text('${person.name}:')),
                     Expanded(
-                      child: WeightsField(
-                        controller: _controllers[person.id]!,
-                      ),
+                      child: WeightsField(controller: _controllers[person.id]!),
                     ),
                   ],
                 ),

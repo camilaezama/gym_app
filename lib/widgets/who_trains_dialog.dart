@@ -10,9 +10,8 @@ Future<List<String>?> showWhoTrainsDialog(
 }) {
   return showDialog<List<String>>(
     context: context,
-    builder: (context) => _WhoTrainsDialog(
-      initial: initial ?? [?gymStore.currentUser?.id],
-    ),
+    builder: (context) =>
+        _WhoTrainsDialog(initial: initial ?? [?gymStore.currentUser?.id]),
   );
 }
 

@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../data/gym_store.dart';
 import '../models.dart';
+import 'category_fields.dart';
 import 'weights_field.dart';
+import 'save_error.dart';
 
 Future<void> showAddExerciseDialog(BuildContext context) {
   return showDialog<void>(
@@ -25,6 +27,7 @@ class _AddExerciseDialogState extends State<_AddExerciseDialog> {
   };
 
   BodyPart _bodyPart = .superior;
+  String? _muscleId;
   WeightType _weightType = .mancuernas;
   bool _nameMissing = false;
 
@@ -43,18 +46,23 @@ class _AddExerciseDialogState extends State<_AddExerciseDialog> {
       setState(() => _nameMissing = true);
       return;
     }
-    await gymStore.addExercise(
-      Exercise(
-        name: name,
-        bodyPart: _bodyPart,
-        weightType: _weightType,
-        initialWeights: {
-          for (final MapEntry(:key, :value) in _weights.entries)
-            if (value.values.isNotEmpty) key: value.values,
-        },
+    // Si falla queda abierto, con lo que se escribió.
+    final saved = await trySaving(
+      ScaffoldMessenger.of(context),
+      () => gymStore.addExercise(
+        Exercise(
+          name: name,
+          bodyPart: _bodyPart,
+          muscleId: _muscleId,
+          weightType: _weightType,
+          initialWeights: {
+            for (final MapEntry(:key, :value) in _weights.entries)
+              if (value.values.isNotEmpty) key: value.values,
+          },
+        ),
       ),
     );
-    if (mounted) Navigator.pop(context);
+    if (saved && mounted) Navigator.pop(context);
   }
 
   @override
@@ -81,15 +89,13 @@ class _AddExerciseDialogState extends State<_AddExerciseDialog> {
               },
             ),
             const SizedBox(height: 16),
-            SegmentedButton<BodyPart>(
-              showSelectedIcon: false,
-              segments: [
-                for (final part in BodyPart.values)
-                  ButtonSegment(value: part, label: Text(part.label)),
-              ],
-              selected: {_bodyPart},
-              onSelectionChanged: (value) =>
-                  setState(() => _bodyPart = value.first),
+            CategoryFields(
+              bodyPart: _bodyPart,
+              muscleId: _muscleId,
+              onChanged: (bodyPart, muscleId) => setState(() {
+                _bodyPart = bodyPart;
+                _muscleId = muscleId;
+              }),
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<WeightType>(

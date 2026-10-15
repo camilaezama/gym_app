@@ -7,6 +7,7 @@ import 'screens/profile_screen.dart';
 import 'screens/routine_editor_screen.dart';
 import 'screens/routines_screen.dart';
 import 'screens/timer_screen.dart';
+import 'widgets/add_exercise_dialog.dart';
 import 'widgets/who_trains_dialog.dart';
 
 class _Tab {
@@ -34,7 +35,7 @@ class _HomeShellState extends State<HomeShell> {
   int _index = 0;
 
   /// Agrega la rutina del día: primero pregunta quiénes entrenan.
-  Future<void> _onAdd() async {
+  Future<void> _onAddRoutine() async {
     final personIds = await showWhoTrainsDialog(context);
     if (personIds == null || !mounted) return;
     await Navigator.push(
@@ -50,6 +51,17 @@ class _HomeShellState extends State<HomeShell> {
       ),
     );
     if (mounted) setState(() => _index = 0);
+  }
+
+  /// En la pestaña Ejercicios el + agrega un ejercicio; en el resto, la rutina.
+  bool get _addsExercise => _index == 1;
+
+  void _onAdd() {
+    if (_addsExercise) {
+      showAddExerciseDialog(context);
+    } else {
+      _onAddRoutine();
+    }
   }
 
   Widget _tabButton(int i) {
@@ -91,7 +103,7 @@ class _HomeShellState extends State<HomeShell> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _onAdd,
-        tooltip: 'Agregar rutina',
+        tooltip: _addsExercise ? 'Agregar ejercicio' : 'Agregar rutina',
         shape: const CircleBorder(),
         child: const Icon(Icons.add),
       ),

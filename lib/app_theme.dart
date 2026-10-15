@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 
 /// Todos los colores de la app. Para cambiar la paleta, editar solo esta clase.
 class AppColors {
-  // Manteca
-  static const background = Color(0xFFFFF6DC);
+  // Blanco
+  static const background = Color(0xFFFFFFFF);
 
-  // Beiges
-  static const surface = Color(0xFFF3E7D3);
-  static const bottomBar = Color(0xFFE8D9C0);
+  // Grises cálidos claros
+  static const surface = Color(0xFFEFE9E7);
+  static const bottomBar = Color(0xFFD9C9BB);
 
-  // Chocolates / marrones
-  static const primary = Color(0xFF5A3418);
-  static const secondary = Color(0xFF8B5E3C);
-  static const text = Color(0xFF3B2314);
-  static const textMuted = Color(0xFF9A7B5F);
-  static const border = Color(0xFFCDBBA0);
+  // Topos / greige oscuros
+  static const primary = Color(0xFF705A4A);
+  static const secondary = Color(0xFF9D897A);
+  static const text = Color(0xFF3A332F);
+  static const textMuted = Color(0xFF8C817A);
+  static const border = Color(0xFFD3D0CD);
 
-  // Texto e íconos sobre fondos chocolate
-  static const onDark = Color(0xFFFFF6DC);
+  // Texto e íconos sobre fondos oscuros
+  static const onDark = Color(0xFFFBF9F8);
 
   static const error = Color(0xFFB3261E);
   static const onError = Color(0xFFFFFFFF);
